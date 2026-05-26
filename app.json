@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Penny's Meds",
+    "slug": "penny-meds",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "pennymeds",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#7B4F9E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.personal.pennymeds"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#7B4F9E"
+      },
+      "package": "com.personal.pennymeds"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#7B4F9E"
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

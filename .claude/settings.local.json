@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-expo-app@latest . --template default --yes)",
+      "Bash(npm --version)",
+      "Bash(npx expo *)",
+      "Bash(npm info *)",
+      "Bash(npm view *)",
+      "Bash(npx expo-doctor@latest check)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/expo/expo/sdk-56/packages/expo/package.json\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.get\\('dependencies',{}\\).items\\(\\) if 'react-native' in k or 'react' in k}, indent=2\\)\\)\")",
+      "Bash(node -e \"const {Versions} = require\\('@expo/sdk'\\); console.log\\(Versions\\)\")",
+      "Bash(npm install *)",
+      "Bash(python3 -c \"import json,sys; v=json.load\\(sys.stdin\\); print\\([x for x in v if x.startswith\\('0.8'\\)][-10:]\\)\")",
+      "Bash(curl -s \"https://registry.npmjs.org/expo/56.0.4\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('description',''\\), d.get\\('readme',''\\)[:500]\\)\")",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
