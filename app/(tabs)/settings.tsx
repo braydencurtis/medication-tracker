@@ -16,8 +16,9 @@ import { theme } from '../../constants/theme';
 import type { FamilyMember } from '../../types';
 
 export default function SettingsScreen() {
-  const { user, displayName, inviteCode, familyId, isOwner, signOut } = useAuth();
+  const { user, displayName, inviteCode, familyId, isOwner, signOut, refreshFamily } = useAuth();
   const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [refreshingCode, setRefreshingCode] = useState(false);
 
   const approved = members.filter((m) => m.status === 'approved');
   const pending = members.filter((m) => m.status === 'pending');
@@ -71,6 +72,30 @@ export default function SettingsScreen() {
             });
             if (error) Alert.alert('Error', error.message);
             else fetchMembers();
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmRefreshCode() {
+    Alert.alert(
+      'Regenerate invite code?',
+      'The old code will stop working immediately. Anyone mid-join with the old code will need the new one.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Regenerate',
+          style: 'destructive',
+          onPress: async () => {
+            setRefreshingCode(true);
+            const { error } = await supabase.rpc('refresh_invite_code');
+            if (error) {
+              Alert.alert('Error', error.message);
+            } else {
+              await refreshFamily();
+            }
+            setRefreshingCode(false);
           },
         },
       ],
@@ -199,6 +224,23 @@ export default function SettingsScreen() {
           <Text style={styles.inviteHint}>
             Share this code so others can request to join your family.
           </Text>
+          {isOwner && (
+            <TouchableOpacity
+              style={styles.refreshCodeButton}
+              onPress={confirmRefreshCode}
+              disabled={refreshingCode}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="refresh-outline"
+                size={14}
+                color={theme.colors.danger}
+              />
+              <Text style={styles.refreshCodeText}>
+                {refreshingCode ? 'Regenerating…' : 'Regenerate code'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity
@@ -362,6 +404,18 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 18,
     marginTop: 8,
+  },
+  refreshCodeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  refreshCodeText: {
+    fontSize: 13,
+    color: theme.colors.danger,
+    fontWeight: '500',
   },
   signOutButton: {
     borderRadius: theme.radius.md,

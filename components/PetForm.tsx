@@ -51,7 +51,8 @@ export function PetForm({ initial, onSubmit, submitLabel, onDelete }: Props) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mediaTypes: ['images'] as any,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
