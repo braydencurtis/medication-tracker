@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMedications } from '../../hooks/useMedications';
+import { useAuth } from '../../context/AuthContext';
 import {
   cancelAllForMedication,
   scheduleReminders,
@@ -12,7 +13,8 @@ import { theme } from '../../constants/theme';
 export default function EditMedicationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { medications, updateMedication } = useMedications();
+  const { familyId } = useAuth();
+  const { medications, updateMedication } = useMedications(familyId);
 
   const medication = medications.find((m) => m.id === id);
 

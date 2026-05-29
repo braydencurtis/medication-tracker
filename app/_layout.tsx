@@ -2,25 +2,30 @@ import 'react-native-url-polyfill/auto';
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { UserProvider, useUser } from '../context/UserContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { configureNotificationHandler, requestPermissions } from '../lib/notifications';
 
 configureNotificationHandler();
 
 function RootLayoutNav() {
-  const { name, loaded } = useUser();
+  const { session, familyId, loaded } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
     if (!loaded) return;
-    const inSetup = segments[0] === 'setup';
-    if (!name && !inSetup) {
-      router.replace('/setup');
-    } else if (name && inSetup) {
-      router.replace('/(tabs)');
+
+    const inAuth = segments[0] === '(auth)';
+    const inFamilySetup = segments[0] === 'family';
+
+    if (!session) {
+      if (!inAuth) router.replace('/(auth)/sign-in');
+    } else if (!familyId) {
+      if (!inFamilySetup) router.replace('/family/setup');
+    } else {
+      if (inAuth || inFamilySetup) router.replace('/(tabs)');
     }
-  }, [name, loaded, segments]);
+  }, [session, familyId, loaded, segments]);
 
   useEffect(() => {
     requestPermissions();
@@ -31,7 +36,8 @@ function RootLayoutNav() {
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="setup" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="family" />
         <Stack.Screen
           name="medication/new"
           options={{
@@ -57,8 +63,8 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <UserProvider>
+    <AuthProvider>
       <RootLayoutNav />
-    </UserProvider>
+    </AuthProvider>
   );
 }

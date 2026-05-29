@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useMedications } from '../../hooks/useMedications';
+import { useAuth } from '../../context/AuthContext';
 import { cancelAllForMedication } from '../../lib/notifications';
 import { theme } from '../../constants/theme';
 import type { Medication } from '../../types';
@@ -33,8 +34,9 @@ function formatReminderTimes(times: string[]) {
 }
 
 export default function MedicationsScreen() {
+  const { familyId } = useAuth();
   const { medications, loading, deleteMedication, toggleActive } =
-    useMedications();
+    useMedications(familyId);
   const router = useRouter();
 
   function confirmDelete(med: Medication) {

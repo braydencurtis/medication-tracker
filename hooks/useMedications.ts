@@ -4,7 +4,7 @@ import type { Medication } from '../types';
 
 type NewMedication = Omit<Medication, 'id' | 'created_at'>;
 
-export function useMedications() {
+export function useMedications(familyId: string | null = null) {
   const [medications, setMedications] = useState<Medication[]>([]);
   const [loading, setLoading] = useState(true);
   const channelName = useRef(`all-medications-${Math.random()}`).current;
@@ -35,10 +35,10 @@ export function useMedications() {
     setLoading(false);
   }
 
-  async function addMedication(med: NewMedication) {
+  async function addMedication(med: Omit<NewMedication, 'family_id'>) {
     const { data, error } = await supabase
       .from('medications')
-      .insert(med)
+      .insert({ ...med, family_id: familyId })
       .select()
       .single();
     if (data) setMedications((prev) => [...prev, data]);

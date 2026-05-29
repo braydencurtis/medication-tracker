@@ -16,7 +16,7 @@ import {
   scheduleReminders,
   cancelDoseNotification,
 } from '../../lib/notifications';
-import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/AuthContext';
 import { theme } from '../../constants/theme';
 
 function greeting() {
@@ -45,7 +45,7 @@ export default function TodayScreen() {
     undoDose,
     refetch,
   } = useTodayDoses();
-  const { name } = useUser();
+  const { displayName: name } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
