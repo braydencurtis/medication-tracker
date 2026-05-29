@@ -31,5 +31,6 @@ export interface FamilyMember {
   family_id: string;
   user_id: string;
   display_name: string;
+  status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }

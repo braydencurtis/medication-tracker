@@ -2,10 +2,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+export type MemberStatus = 'approved' | 'pending' | 'rejected' | null;
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  familyId: string | null;
+  familyId: string | null;       // only set when approved
+  memberStatus: MemberStatus;
+  isOwner: boolean;
   displayName: string | null;
   inviteCode: string | null;
   loaded: boolean;
@@ -17,6 +21,8 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   familyId: null,
+  memberStatus: null,
+  isOwner: false,
   displayName: null,
   inviteCode: null,
   loaded: false,
@@ -27,6 +33,8 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [familyId, setFamilyId] = useState<string | null>(null);
+  const [memberStatus, setMemberStatus] = useState<MemberStatus>(null);
+  const [isOwner, setIsOwner] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -48,9 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session) {
         loadFamily(session.user.id);
       } else {
-        setFamilyId(null);
-        setDisplayName(null);
-        setInviteCode(null);
+        resetFamily();
         setLoaded(true);
       }
     });
@@ -58,31 +64,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  function resetFamily() {
+    setFamilyId(null);
+    setMemberStatus(null);
+    setIsOwner(false);
+    setDisplayName(null);
+    setInviteCode(null);
+  }
+
   async function loadFamily(userId: string) {
-    // Two separate queries avoids join RLS edge cases right after family creation
     const { data: memberData, error: memberError } = await supabase
       .from('family_members')
-      .select('family_id, display_name')
+      .select('family_id, display_name, status')
       .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (memberError) console.error('loadFamily member error:', memberError);
+    if (memberError) console.error('loadFamily error:', memberError);
 
     if (memberData) {
-      setFamilyId(memberData.family_id);
       setDisplayName(memberData.display_name);
+      setMemberStatus(memberData.status as MemberStatus);
 
-      const { data: familyData } = await supabase
-        .from('families')
-        .select('invite_code')
-        .eq('id', memberData.family_id)
-        .maybeSingle();
+      if (memberData.status === 'approved') {
+        setFamilyId(memberData.family_id);
 
-      setInviteCode(familyData?.invite_code ?? null);
+        const { data: familyData } = await supabase
+          .from('families')
+          .select('invite_code, owner_id')
+          .eq('id', memberData.family_id)
+          .maybeSingle();
+
+        setInviteCode(familyData?.invite_code ?? null);
+        setIsOwner(familyData?.owner_id === userId);
+      } else {
+        setFamilyId(null);
+        setInviteCode(null);
+        setIsOwner(false);
+      }
     } else {
-      setFamilyId(null);
-      setDisplayName(null);
-      setInviteCode(null);
+      resetFamily();
     }
     setLoaded(true);
   }
@@ -103,6 +125,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
         user: session?.user ?? null,
         familyId,
+        memberStatus,
+        isOwner,
         displayName,
         inviteCode,
         loaded,

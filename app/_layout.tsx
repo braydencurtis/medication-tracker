@@ -8,7 +8,7 @@ import { configureNotificationHandler, requestPermissions } from '../lib/notific
 configureNotificationHandler();
 
 function RootLayoutNav() {
-  const { session, familyId, loaded } = useAuth();
+  const { session, familyId, memberStatus, loaded } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
@@ -16,16 +16,20 @@ function RootLayoutNav() {
     if (!loaded) return;
 
     const inAuth = segments[0] === '(auth)';
-    const inFamilySetup = segments[0] === 'family';
+    const inFamily = segments[0] === 'family';
+    const isPendingScreen = inFamily && segments[1] === 'pending';
+    const isSetupScreen = inFamily && segments[1] === 'setup';
 
     if (!session) {
       if (!inAuth) router.replace('/(auth)/sign-in');
+    } else if (memberStatus === 'pending') {
+      if (!isPendingScreen) router.replace('/family/pending');
     } else if (!familyId) {
-      if (!inFamilySetup) router.replace('/family/setup');
+      if (!isSetupScreen) router.replace('/family/setup');
     } else {
-      if (inAuth || inFamilySetup) router.replace('/(tabs)');
+      if (inAuth || inFamily) router.replace('/(tabs)');
     }
-  }, [session, familyId, loaded, segments]);
+  }, [session, familyId, memberStatus, loaded, segments]);
 
   useEffect(() => {
     requestPermissions();

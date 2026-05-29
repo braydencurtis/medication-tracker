@@ -16,20 +16,66 @@ import { theme } from '../../constants/theme';
 import type { FamilyMember } from '../../types';
 
 export default function SettingsScreen() {
-  const { user, displayName, inviteCode, familyId, signOut } = useAuth();
+  const { user, displayName, inviteCode, familyId, isOwner, signOut } = useAuth();
   const [members, setMembers] = useState<FamilyMember[]>([]);
+
+  const approved = members.filter((m) => m.status === 'approved');
+  const pending = members.filter((m) => m.status === 'pending');
 
   useEffect(() => {
     if (!familyId) return;
-    supabase
+    fetchMembers();
+
+    // Owner gets real-time updates when someone requests to join
+    const channel = supabase
+      .channel(`family-members-${familyId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'family_members' },
+        () => fetchMembers(),
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [familyId]);
+
+  async function fetchMembers() {
+    const { data } = await supabase
       .from('family_members')
       .select('*')
       .eq('family_id', familyId)
-      .order('created_at')
-      .then(({ data }) => {
-        if (data) setMembers(data);
-      });
-  }, [familyId]);
+      .order('created_at');
+    if (data) setMembers(data);
+  }
+
+  async function handleApprove(member: FamilyMember) {
+    const { error } = await supabase.rpc('approve_member', {
+      p_member_id: member.id,
+    });
+    if (error) Alert.alert('Error', error.message);
+    else fetchMembers();
+  }
+
+  function confirmReject(member: FamilyMember) {
+    Alert.alert(
+      `Remove ${member.display_name}?`,
+      'They will no longer have access to your family.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase.rpc('reject_member', {
+              p_member_id: member.id,
+            });
+            if (error) Alert.alert('Error', error.message);
+            else fetchMembers();
+          },
+        },
+      ],
+    );
+  }
 
   function copyInviteCode() {
     if (!inviteCode) return;
@@ -49,37 +95,85 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Settings</Text>
 
+        {/* Account */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your account</Text>
           <View style={styles.card}>
-            <Row label="Name" value={displayName ?? '—'} />
+            <InfoRow label="Name" value={displayName ?? '—'} />
             <View style={styles.divider} />
-            <Row label="Email" value={user?.email ?? '—'} />
+            <InfoRow label="Email" value={user?.email ?? '—'} />
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Family members · {members.length}
-          </Text>
-          <View style={styles.card}>
-            {members.length === 0 ? (
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>No members yet</Text>
-              </View>
-            ) : (
-              members.map((m, i) => (
+        {/* Pending requests — owner only */}
+        {isOwner && pending.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Pending requests · {pending.length}
+            </Text>
+            <View style={styles.card}>
+              {pending.map((m, i) => (
                 <React.Fragment key={m.id}>
                   {i > 0 && <View style={styles.divider} />}
-                  <View style={styles.row}>
-                    <View style={styles.memberAvatar}>
-                      <Text style={styles.memberAvatarText}>
-                        {m.display_name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
+                  <View style={styles.pendingRow}>
+                    <MemberAvatar name={m.display_name} />
                     <Text style={styles.memberName}>{m.display_name}</Text>
-                    {m.user_id === user?.id && (
-                      <Text style={styles.youBadge}>You</Text>
+                    <TouchableOpacity
+                      style={styles.rejectBtn}
+                      onPress={() => confirmReject(m)}
+                    >
+                      <Ionicons name="close" size={16} color={theme.colors.danger} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.approveBtn}
+                      onPress={() => handleApprove(m)}
+                    >
+                      <Ionicons name="checkmark" size={16} color="#fff" />
+                      <Text style={styles.approveBtnText}>Approve</Text>
+                    </TouchableOpacity>
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Family members */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Family members · {approved.length}
+          </Text>
+          <View style={styles.card}>
+            {approved.length === 0 ? (
+              <View style={styles.memberRow}>
+                <Text style={styles.emptyText}>No members yet</Text>
+              </View>
+            ) : (
+              approved.map((m, i) => (
+                <React.Fragment key={m.id}>
+                  {i > 0 && <View style={styles.divider} />}
+                  <View style={styles.memberRow}>
+                    <MemberAvatar name={m.display_name} />
+                    <Text style={styles.memberName}>{m.display_name}</Text>
+                    <View style={styles.badges}>
+                      {m.user_id === user?.id && (
+                        <Text style={styles.youBadge}>You</Text>
+                      )}
+                      {isOwner && m.user_id === user?.id && (
+                        <Text style={styles.ownerBadge}>Owner</Text>
+                      )}
+                    </View>
+                    {isOwner && m.user_id !== user?.id && (
+                      <TouchableOpacity
+                        onPress={() => confirmReject(m)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name="person-remove-outline"
+                          size={16}
+                          color={theme.colors.textLight}
+                        />
+                      </TouchableOpacity>
                     )}
                   </View>
                 </React.Fragment>
@@ -88,6 +182,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Invite code */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Invite code</Text>
           <TouchableOpacity
@@ -102,7 +197,7 @@ export default function SettingsScreen() {
             </View>
           </TouchableOpacity>
           <Text style={styles.inviteHint}>
-            Share this code so others can join and see the same pets and medications.
+            Share this code so others can request to join your family.
           </Text>
         </View>
 
@@ -118,15 +213,19 @@ export default function SettingsScreen() {
   );
 }
 
-function Row({ label, value }: { label: string; value?: string }) {
+function MemberAvatar({ name }: { name: string }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      {value !== undefined && (
-        <Text style={styles.rowValue} numberOfLines={1}>
-          {value}
-        </Text>
-      )}
+    <View style={styles.avatar}>
+      <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+    </View>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
@@ -156,53 +255,90 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     overflow: 'hidden',
   },
-  row: {
+  divider: { height: 1, backgroundColor: theme.colors.border },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 14,
-    gap: 10,
   },
-  rowLabel: {
-    fontSize: 15,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
-  },
-  rowValue: {
+  infoLabel: { fontSize: 15, color: theme.colors.textSecondary, fontWeight: '500' },
+  infoValue: {
     fontSize: 15,
     color: theme.colors.textPrimary,
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
+    marginLeft: 12,
   },
-  divider: { height: 1, backgroundColor: theme.colors.border },
-  memberAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  pendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: theme.colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  memberAvatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.primary,
-  },
+  avatarText: { fontSize: 14, fontWeight: '700', color: theme.colors.primary },
   memberName: {
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
     color: theme.colors.textPrimary,
   },
+  emptyText: { fontSize: 14, color: theme.colors.textSecondary },
+  badges: { flexDirection: 'row', gap: 6 },
   youBadge: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: theme.colors.primary,
     backgroundColor: theme.colors.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
+  },
+  ownerBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  approveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.success,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  approveBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  rejectBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: theme.colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inviteCard: {
     backgroundColor: theme.colors.primaryLight,
@@ -219,16 +355,8 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     letterSpacing: 6,
   },
-  copyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  copyText: {
-    fontSize: 13,
-    color: theme.colors.primary,
-    fontWeight: '500',
-  },
+  copyRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  copyText: { fontSize: 13, color: theme.colors.primary, fontWeight: '500' },
   inviteHint: {
     fontSize: 13,
     color: theme.colors.textSecondary,
@@ -243,9 +371,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: theme.spacing.sm,
   },
-  signOutText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.danger,
-  },
+  signOutText: { fontSize: 15, fontWeight: '700', color: theme.colors.danger },
 });
