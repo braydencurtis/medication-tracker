@@ -68,7 +68,7 @@ export function MedicationDoseCard({ dose, onGive, onUndo }: Props) {
     >
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.petName}>{medication.pet_name}</Text>
+          <Text style={styles.petName}>{medication.pet_name ?? '—'}</Text>
           <Text style={styles.medName}>{medication.name}</Text>
           {medication.dosage ? (
             <Text style={styles.dosage}>{medication.dosage}</Text>

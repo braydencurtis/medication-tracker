@@ -60,6 +60,24 @@ function RootLayoutNav() {
             headerTintColor: '#7B4F9E',
           }}
         />
+        <Stack.Screen
+          name="pet/new"
+          options={{
+            presentation: 'modal',
+            headerShown: true,
+            title: 'Add pet',
+            headerTintColor: '#7B4F9E',
+          }}
+        />
+        <Stack.Screen
+          name="pet/[id]"
+          options={{
+            presentation: 'modal',
+            headerShown: true,
+            title: 'Edit pet',
+            headerTintColor: '#7B4F9E',
+          }}
+        />
       </Stack>
     </>
   );

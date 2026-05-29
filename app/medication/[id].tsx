@@ -7,8 +7,9 @@ import {
   cancelAllForMedication,
   scheduleReminders,
 } from '../../lib/notifications';
-import { MedicationForm } from '../../components/MedicationForm';
+import { MedicationForm, type MedicationFormValues } from '../../components/MedicationForm';
 import { theme } from '../../constants/theme';
+import type { Medication } from '../../types';
 
 export default function EditMedicationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,9 +27,7 @@ export default function EditMedicationScreen() {
     );
   }
 
-  async function handleSubmit(
-    values: Parameters<typeof updateMedication>[1],
-  ) {
+  async function handleSubmit(values: MedicationFormValues) {
     const { error } = await updateMedication(id, values);
     if (error) {
       Alert.alert('Error', 'Could not update medication. Please try again.');
@@ -36,12 +35,19 @@ export default function EditMedicationScreen() {
     }
     // Reschedule: cancel old notifications and re-schedule with new times
     await cancelAllForMedication(id);
-    const updatedMed = { ...medication, ...values } as import('../../types').Medication;
+    const updatedMed: Medication = { ...medication, ...values } as Medication;
     scheduleReminders([updatedMed], []).catch(console.error);
     router.back();
   }
 
-  return <MedicationForm initial={medication} onSubmit={handleSubmit} submitLabel="Save changes" />;
+  return (
+    <MedicationForm
+      familyId={familyId}
+      initial={medication}
+      onSubmit={handleSubmit}
+      submitLabel="Save changes"
+    />
+  );
 }
 
 const styles = StyleSheet.create({

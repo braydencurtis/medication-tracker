@@ -63,7 +63,7 @@ export default function MedicationsScreen() {
         <View style={styles.cardMain}>
           <View style={styles.cardText}>
             <Text style={[styles.petName, !item.active && styles.textFaded]}>
-              {item.pet_name}
+              {item.pet_name ?? '—'}
             </Text>
             <Text style={[styles.medName, !item.active && styles.textFaded]}>
               {item.name}

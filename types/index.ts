@@ -1,7 +1,8 @@
 export interface Medication {
   id: string;
   name: string;
-  pet_name: string;
+  pet_name: string | null;  // kept for display; new records use pet_id instead
+  pet_id: string | null;
   dosage: string | null;
   frequency: number;
   reminder_times: string[];
@@ -32,5 +33,25 @@ export interface FamilyMember {
   user_id: string;
   display_name: string;
   status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
+export interface Pet {
+  id: string;
+  family_id: string;
+  name: string;
+  species: string | null;
+  breed: string | null;
+  profile_photo_path: string | null;
+  created_at: string;
+}
+
+export interface PetPhoto {
+  id: string;
+  pet_id: string;
+  storage_path: string;
+  photo_type: 'profile' | 'pre_medication' | 'post_medication' | 'other';
+  display_order: number;
+  caption: string | null;
   created_at: string;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Medication } from '../types';
 
-type NewMedication = Omit<Medication, 'id' | 'created_at'>;
+type NewMedication = Omit<Medication, 'id' | 'created_at' | 'family_id'>;
 
 export function useMedications(familyId: string | null = null) {
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -35,7 +35,7 @@ export function useMedications(familyId: string | null = null) {
     setLoading(false);
   }
 
-  async function addMedication(med: Omit<NewMedication, 'family_id'>) {
+  async function addMedication(med: NewMedication) {
     const { data, error } = await supabase
       .from('medications')
       .insert({ ...med, family_id: familyId })

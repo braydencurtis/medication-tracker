@@ -7,22 +7,29 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
-import type { Medication } from '../types';
+import { usePets } from '../hooks/usePets';
+import { getPetPhotoUrl } from '../lib/storage';
+import type { Medication, Pet } from '../types';
 
-type FormValues = {
-  pet_name: string;
+export type MedicationFormValues = {
+  pet_id: string;
+  pet_name: string;    // denormalised for display convenience
   name: string;
-  dosage: string;
+  dosage: string | null;
   frequency: number;
   reminder_times: string[];
   active: boolean;
 };
 
 interface Props {
+  familyId: string | null;
   initial?: Partial<Medication>;
-  onSubmit: (values: FormValues) => Promise<void>;
+  onSubmit: (values: MedicationFormValues) => Promise<void>;
   submitLabel: string;
 }
 
@@ -38,8 +45,13 @@ function isValidTime(t: string) {
   })();
 }
 
-export function MedicationForm({ initial, onSubmit, submitLabel }: Props) {
-  const [petName, setPetName] = useState(initial?.pet_name ?? 'Penny');
+export function MedicationForm({ familyId, initial, onSubmit, submitLabel }: Props) {
+  const router = useRouter();
+  const { pets } = usePets(familyId);
+
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(
+    initial?.pet_id ?? null,
+  );
   const [name, setName] = useState(initial?.name ?? '');
   const [dosage, setDosage] = useState(initial?.dosage ?? '');
   const [frequency, setFrequency] = useState(initial?.frequency ?? 1);
@@ -47,6 +59,8 @@ export function MedicationForm({ initial, onSubmit, submitLabel }: Props) {
     defaultTimes(initial?.frequency ?? 1, initial?.reminder_times ?? []),
   );
   const [saving, setSaving] = useState(false);
+
+  const selectedPet = pets.find((p) => p.id === selectedPetId) ?? null;
 
   function changeFrequency(f: number) {
     setFrequency(f);
@@ -62,8 +76,8 @@ export function MedicationForm({ initial, onSubmit, submitLabel }: Props) {
   }
 
   async function handleSubmit() {
-    if (!petName.trim()) {
-      Alert.alert('Missing field', 'Please enter a pet name.');
+    if (!selectedPetId || !selectedPet) {
+      Alert.alert('Missing field', 'Please select a pet.');
       return;
     }
     if (!name.trim()) {
@@ -83,9 +97,10 @@ export function MedicationForm({ initial, onSubmit, submitLabel }: Props) {
     setSaving(true);
     try {
       await onSubmit({
-        pet_name: petName.trim(),
+        pet_id: selectedPetId,
+        pet_name: selectedPet.name,
         name: name.trim(),
-        dosage: dosage.trim() || null!,
+        dosage: dosage.trim() || null,
         frequency,
         reminder_times: reminderTimes.slice(0, frequency).filter(Boolean),
         active: initial?.active ?? true,
@@ -101,15 +116,63 @@ export function MedicationForm({ initial, onSubmit, submitLabel }: Props) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Field label="Pet name">
-        <TextInput
-          style={styles.input}
-          value={petName}
-          onChangeText={setPetName}
-          placeholder="e.g. Penny"
-          placeholderTextColor={theme.colors.textLight}
-          autoCapitalize="words"
-        />
+      {/* Pet picker */}
+      <Field label="Pet">
+        {pets.length === 0 ? (
+          <View style={styles.noPetsBox}>
+            <Text style={styles.noPetsText}>
+              No pets added yet.
+            </Text>
+            <TouchableOpacity
+              style={styles.addPetLink}
+              onPress={() => router.push('/pet/new')}
+            >
+              <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
+              <Text style={styles.addPetLinkText}>Add a pet first</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.petPickerRow}>
+            {pets.map((pet) => {
+              const isSelected = pet.id === selectedPetId;
+              const photoUrl = getPetPhotoUrl(pet.profile_photo_path);
+              return (
+                <TouchableOpacity
+                  key={pet.id}
+                  style={[
+                    styles.petChip,
+                    isSelected && styles.petChipSelected,
+                  ]}
+                  onPress={() => setSelectedPetId(pet.id)}
+                  activeOpacity={0.75}
+                >
+                  {photoUrl ? (
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={styles.petChipPhoto}
+                    />
+                  ) : (
+                    <View style={[styles.petChipPhoto, styles.petChipPhotoPlaceholder]}>
+                      <Ionicons
+                        name="paw"
+                        size={14}
+                        color={isSelected ? theme.colors.primary : theme.colors.textLight}
+                      />
+                    </View>
+                  )}
+                  <Text
+                    style={[
+                      styles.petChipName,
+                      isSelected && styles.petChipNameSelected,
+                    ]}
+                  >
+                    {pet.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </Field>
 
       <Field label="Medication name">
@@ -207,17 +270,10 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    padding: theme.spacing.md,
-    paddingBottom: 48,
-  },
-  field: {
-    marginBottom: theme.spacing.md,
-  },
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  content: { padding: theme.spacing.md, paddingBottom: 48 },
+
+  field: { marginBottom: theme.spacing.md },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
@@ -236,10 +292,63 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.textPrimary,
   },
-  frequencyRow: {
-    flexDirection: 'row',
-    gap: 10,
+
+  // Pet picker
+  noPetsBox: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    alignItems: 'center',
+    gap: 8,
   },
+  noPetsText: { fontSize: 14, color: theme.colors.textSecondary },
+  addPetLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addPetLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
+  petPickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  petChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  petChipSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
+  },
+  petChipPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.border,
+  },
+  petChipPhotoPlaceholder: {
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  petChipName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+  },
+  petChipNameSelected: { color: theme.colors.primary },
+
+  frequencyRow: { flexDirection: 'row', gap: 10 },
   freqButton: {
     flex: 1,
     paddingVertical: 12,
@@ -258,25 +367,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.textSecondary,
   },
-  freqButtonTextActive: {
-    color: theme.colors.primary,
-  },
-  reminderRow: {
-    marginBottom: 8,
-  },
-  reminderLabel: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginBottom: 4,
-  },
-  timeInput: {
-    fontVariant: ['tabular-nums'],
-  },
-  timeHint: {
-    fontSize: 12,
-    color: theme.colors.textLight,
-    marginTop: 2,
-  },
+  freqButtonTextActive: { color: theme.colors.primary },
+
+  reminderRow: { marginBottom: 8 },
+  reminderLabel: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 4 },
+  timeInput: { fontVariant: ['tabular-nums'] },
+  timeHint: { fontSize: 12, color: theme.colors.textLight, marginTop: 2 },
+
   submitButton: {
     backgroundColor: theme.colors.primary,
     borderRadius: theme.radius.md,
@@ -284,12 +381,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: theme.spacing.md,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  submitButtonDisabled: { opacity: 0.6 },
+  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

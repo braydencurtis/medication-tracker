@@ -28,7 +28,13 @@
           "color": "#7B4F9E"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to upload pet pictures."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
