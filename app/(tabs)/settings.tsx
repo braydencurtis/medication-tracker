@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,30 @@ import {
   StyleSheet,
   Alert,
   Clipboard,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { theme } from '../../constants/theme';
+import type { FamilyMember } from '../../types';
 
 export default function SettingsScreen() {
-  const { user, displayName, inviteCode, signOut } = useAuth();
+  const { user, displayName, inviteCode, familyId, signOut } = useAuth();
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+
+  useEffect(() => {
+    if (!familyId) return;
+    supabase
+      .from('family_members')
+      .select('*')
+      .eq('family_id', familyId)
+      .order('created_at')
+      .then(({ data }) => {
+        if (data) setMembers(data);
+      });
+  }, [familyId]);
 
   function copyInviteCode() {
     if (!inviteCode) return;
@@ -30,7 +46,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Settings</Text>
 
         <View style={styles.section}>
@@ -43,7 +59,37 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Family invite code</Text>
+          <Text style={styles.sectionTitle}>
+            Family members · {members.length}
+          </Text>
+          <View style={styles.card}>
+            {members.length === 0 ? (
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>No members yet</Text>
+              </View>
+            ) : (
+              members.map((m, i) => (
+                <React.Fragment key={m.id}>
+                  {i > 0 && <View style={styles.divider} />}
+                  <View style={styles.row}>
+                    <View style={styles.memberAvatar}>
+                      <Text style={styles.memberAvatarText}>
+                        {m.display_name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={styles.memberName}>{m.display_name}</Text>
+                    {m.user_id === user?.id && (
+                      <Text style={styles.youBadge}>You</Text>
+                    )}
+                  </View>
+                </React.Fragment>
+              ))
+            )}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Invite code</Text>
           <TouchableOpacity
             style={styles.inviteCard}
             onPress={copyInviteCode}
@@ -51,17 +97,12 @@ export default function SettingsScreen() {
           >
             <Text style={styles.inviteCode}>{inviteCode ?? '—'}</Text>
             <View style={styles.copyRow}>
-              <Ionicons
-                name="copy-outline"
-                size={14}
-                color={theme.colors.primary}
-              />
+              <Ionicons name="copy-outline" size={14} color={theme.colors.primary} />
               <Text style={styles.copyText}>Tap to copy</Text>
             </View>
           </TouchableOpacity>
           <Text style={styles.inviteHint}>
-            Share this code with family members so they can join and see the
-            same pets and medications.
+            Share this code so others can join and see the same pets and medications.
           </Text>
         </View>
 
@@ -72,25 +113,27 @@ export default function SettingsScreen() {
         >
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value?: string }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue} numberOfLines={1}>
-        {value}
-      </Text>
+      {value !== undefined && (
+        <Text style={styles.rowValue} numberOfLines={1}>
+          {value}
+        </Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: theme.spacing.md },
+  content: { padding: theme.spacing.md, paddingBottom: 48 },
   title: {
     fontSize: 28,
     fontWeight: '800',
@@ -115,10 +158,10 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 14,
+    gap: 10,
   },
   rowLabel: {
     fontSize: 15,
@@ -131,9 +174,36 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
-    marginLeft: 12,
   },
   divider: { height: 1, backgroundColor: theme.colors.border },
+  memberAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  memberName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: theme.colors.textPrimary,
+  },
+  youBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   inviteCard: {
     backgroundColor: theme.colors.primaryLight,
     borderRadius: theme.radius.lg,
