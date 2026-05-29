@@ -89,7 +89,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             setRefreshingCode(true);
-            const { error } = await supabase.rpc('refresh_invite_code');
+            const { error } = await supabase.rpc('refresh_invite_code', {});
             if (error) {
               Alert.alert('Error', error.message);
             } else {
