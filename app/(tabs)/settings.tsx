@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -19,6 +20,9 @@ export default function SettingsScreen() {
   const { user, displayName, inviteCode, familyId, isOwner, signOut, refreshFamily } = useAuth();
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [refreshingCode, setRefreshingCode] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   const approved = members.filter((m) => m.status === 'approved');
   const pending = members.filter((m) => m.status === 'pending');
@@ -78,6 +82,30 @@ export default function SettingsScreen() {
     );
   }
 
+  function startEditingName() {
+    setNameInput(displayName ?? '');
+    setEditingName(true);
+  }
+
+  async function saveDisplayName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      Alert.alert('Required', 'Name cannot be empty.');
+      return;
+    }
+    setSavingName(true);
+    const { error } = await supabase.rpc('update_display_name', {
+      p_display_name: trimmed,
+    });
+    setSavingName(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+      return;
+    }
+    await refreshFamily();
+    setEditingName(false);
+  }
+
   function confirmRefreshCode() {
     Alert.alert(
       'Regenerate invite code?',
@@ -124,7 +152,53 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your account</Text>
           <View style={styles.card}>
-            <InfoRow label="Name" value={displayName ?? '—'} />
+            {/* Name row — tappable to edit */}
+            {editingName ? (
+              <View style={styles.nameEditRow}>
+                <TextInput
+                  style={styles.nameInput}
+                  value={nameInput}
+                  onChangeText={setNameInput}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={saveDisplayName}
+                  placeholderTextColor={theme.colors.textLight}
+                />
+                <TouchableOpacity
+                  onPress={saveDisplayName}
+                  disabled={savingName}
+                  style={styles.nameSaveBtn}
+                >
+                  <Text style={styles.nameSaveBtnText}>
+                    {savingName ? 'Saving…' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setEditingName(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.infoRow}
+                onPress={startEditingName}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.infoLabel}>Name</Text>
+                <View style={styles.infoValueRow}>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {displayName ?? '—'}
+                  </Text>
+                  <Ionicons
+                    name="pencil-outline"
+                    size={14}
+                    color={theme.colors.textLight}
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
             <View style={styles.divider} />
             <InfoRow label="Email" value={user?.email ?? '—'} />
           </View>
@@ -313,6 +387,41 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
     marginLeft: 12,
+  },
+  infoValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginLeft: 12,
+  },
+  nameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.colors.textPrimary,
+    fontWeight: '500',
+    borderBottomWidth: 1.5,
+    borderBottomColor: theme.colors.primary,
+    paddingVertical: 4,
+  },
+  nameSaveBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  nameSaveBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
   },
   memberRow: {
     flexDirection: 'row',
