@@ -256,9 +256,20 @@ export default function SettingsScreen() {
                       {isOwner && m.user_id === user?.id && <Text style={styles.ownerBadge}>Owner</Text>}
                     </View>
                     {isOwner && m.user_id !== user?.id && (
-                      <TouchableOpacity onPress={() => confirmReject(m)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Ionicons name="person-remove-outline" size={16} color={theme.colors.textLight} />
-                      </TouchableOpacity>
+                      <View style={styles.memberActions}>
+                        <TouchableOpacity
+                          onPress={() => confirmTransferOwnership(m)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="ribbon-outline" size={16} color={theme.colors.textLight} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => confirmReject(m)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="person-remove-outline" size={16} color={theme.colors.textLight} />
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </View>
                 </React.Fragment>
@@ -310,6 +321,30 @@ export default function SettingsScreen() {
             const { error } = await supabase.rpc('reject_member', { p_member_id: member.id });
             if (error) Alert.alert('Error', error.message);
             else fetchMembers();
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmTransferOwnership(member: FamilyMember) {
+    Alert.alert(
+      `Make ${member.display_name} the owner?`,
+      'They will gain full owner privileges and you will lose yours. This cannot be undone from within the app.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Transfer',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase.rpc('transfer_ownership', {
+              p_new_owner_user_id: member.user_id,
+            });
+            if (error) {
+              Alert.alert('Error', error.message);
+            } else {
+              await refreshFamily();
+            }
           },
         },
       ],
@@ -433,6 +468,11 @@ const styles = StyleSheet.create({
   ownerBadge: {
     fontSize: 11, fontWeight: '700', color: '#92400E',
     backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+  },
+  memberActions: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'center',
   },
   approveBtn: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.success,
