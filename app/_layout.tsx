@@ -20,13 +20,16 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!loaded) return;
 
-    const inAuth = segments[0] === '(auth)';
-    const inFamily = segments[0] === 'family';
-    const isPendingScreen = inFamily && segments[1] === 'pending';
-    const isSetupScreen = inFamily && segments[1] === 'setup';
+    const inAuth        = segments[0] === '(auth)';
+    const inFamily      = segments[0] === 'family';
+    const isPendingScreen   = inFamily && segments[1] === 'pending';
+    const isSetupScreen     = inFamily && segments[1] === 'setup';
+    const isResetPassword   = segments[0] === 'reset-password';
 
     if (!session) {
       if (!inAuth) router.replace('/(auth)/sign-in');
+    } else if (isResetPassword) {
+      // Stay on the reset-password screen while the user sets a new password
     } else if (memberStatus === 'pending') {
       if (!isPendingScreen) router.replace('/family/pending');
     } else if (!familyId) {
@@ -85,6 +88,10 @@ function RootLayoutNav() {
             title: 'Edit pet',
             headerTintColor: '#7B4F9E',
           }}
+        />
+        <Stack.Screen
+          name="reset-password"
+          options={{ headerShown: false }}
         />
       </Stack>
     </>
