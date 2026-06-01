@@ -33,6 +33,7 @@ export interface FamilyMember {
   user_id: string;
   display_name: string;
   status: 'pending' | 'approved' | 'rejected';
+  avatar_path: string | null;
   created_at: string;
 }
 
