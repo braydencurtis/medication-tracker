@@ -63,20 +63,19 @@ export function useTodayDoses() {
       .channel(`${channelPrefix}-dose-logs`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'dose_logs',
-          filter: `dose_date=eq.${today}`,
-        },
+        // No date filter here — Supabase can't apply column filters to DELETE
+        // events without REPLICA IDENTITY FULL. We guard in JS instead.
+        { event: '*', schema: 'public', table: 'dose_logs' },
         (payload) => {
           if (
             payload.eventType === 'INSERT' ||
             payload.eventType === 'UPDATE'
           ) {
             const newLog = payload.new as DoseLog;
+            // Ignore changes for other days
+            if (newLog.dose_date !== today) return;
             // Cancel the local reminder on THIS device whenever anyone marks
-            // the dose as given — this handles the "other person gave it" case.
+            // the dose as given — handles the "other person gave it" case.
             if (newLog.given_at) {
               cancelDoseNotification(
                 newLog.medication_id,
@@ -94,6 +93,7 @@ export function useTodayDoses() {
               return [...prev, newLog];
             });
           } else if (payload.eventType === 'DELETE') {
+            // payload.old always has at least the primary key (id)
             setDoseLogs((prev) =>
               prev.filter((l) => l.id !== payload.old.id),
             );
