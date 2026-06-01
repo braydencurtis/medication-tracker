@@ -11,13 +11,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTodayDoses } from '../../hooks/useTodayDoses';
+import { usePets } from '../../hooks/usePets';
 import { MedicationDoseCard } from '../../components/MedicationDoseCard';
 import {
   scheduleReminders,
   cancelDoseNotification,
+  sendDoseGivenNotification,
 } from '../../lib/notifications';
 import { useAuth } from '../../context/AuthContext';
 import { theme } from '../../constants/theme';
+import type { TodayDose } from '../../types';
 
 function greeting() {
   const h = new Date().getHours();
@@ -45,7 +48,8 @@ export default function TodayScreen() {
     undoDose,
     refetch,
   } = useTodayDoses();
-  const { displayName: name } = useAuth();
+  const { displayName: name, familyId, user } = useAuth();
+  const { pets } = usePets(familyId);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,9 +75,23 @@ export default function TodayScreen() {
       return;
     }
     const today = new Date().toISOString().split('T')[0];
-    cancelDoseNotification(medicationId, doseNumber, today).catch(
-      console.error,
-    );
+    cancelDoseNotification(medicationId, doseNumber, today).catch(console.error);
+
+    // Notify other family members via Expo Push API
+    if (user) {
+      const dose = todayDoses.find(
+        (d) => d.medication.id === medicationId && d.doseNumber === doseNumber,
+      );
+      if (dose) {
+        const pet = pets.find((p) => p.id === dose.medication.pet_id);
+        sendDoseGivenNotification({
+          currentUserId: user.id,
+          petName: pet?.name ?? dose.medication.pet_name ?? 'Pet',
+          medName: dose.medication.name,
+          givenBy: name ?? 'Someone',
+        }).catch(console.error);
+      }
+    }
   }
 
   async function handleUndo(medicationId: string, doseNumber: number) {
@@ -81,17 +99,25 @@ export default function TodayScreen() {
     if (error) Alert.alert('Error', 'Could not undo. Please try again.');
   }
 
+  function renderItem({ item }: { item: TodayDose }) {
+    const pet = pets.find((p) => p.id === item.medication.pet_id) ?? null;
+    return (
+      <MedicationDoseCard
+        dose={item}
+        pet={pet}
+        onGive={() => handleGive(item.medication.id, item.doseNumber)}
+        onUndo={() => handleUndo(item.medication.id, item.doseNumber)}
+      />
+    );
+  }
+
   const header = (
     <View style={styles.header}>
       <Text style={styles.greeting}>{greeting()}</Text>
       <Text style={styles.date}>{formattedDate()}</Text>
       {totalCount > 0 && (
-        <View
-          style={[styles.statusPill, allDone && styles.statusPillDone]}
-        >
-          <Text
-            style={[styles.statusText, allDone && styles.statusTextDone]}
-          >
+        <View style={[styles.statusPill, allDone && styles.statusPillDone]}>
+          <Text style={[styles.statusText, allDone && styles.statusTextDone]}>
             {allDone
               ? '✓ All done for today!'
               : `${givenCount} of ${totalCount} dose${totalCount !== 1 ? 's' : ''} given`}
@@ -128,16 +154,8 @@ export default function TodayScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
         data={todayDoses}
-        keyExtractor={(item) =>
-          `${item.medication.id}-${item.doseNumber}`
-        }
-        renderItem={({ item }) => (
-          <MedicationDoseCard
-            dose={item}
-            onGive={() => handleGive(item.medication.id, item.doseNumber)}
-            onUndo={() => handleUndo(item.medication.id, item.doseNumber)}
-          />
-        )}
+        keyExtractor={(item) => `${item.medication.id}-${item.doseNumber}`}
+        renderItem={renderItem}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         contentContainerStyle={styles.list}

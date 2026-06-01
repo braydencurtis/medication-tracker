@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { cancelDoseNotification } from '../lib/notifications';
 import type { Medication, DoseLog, TodayDose } from '../types';
 
 function todayDate() {
@@ -74,6 +75,15 @@ export function useTodayDoses() {
             payload.eventType === 'UPDATE'
           ) {
             const newLog = payload.new as DoseLog;
+            // Cancel the local reminder on THIS device whenever anyone marks
+            // the dose as given — this handles the "other person gave it" case.
+            if (newLog.given_at) {
+              cancelDoseNotification(
+                newLog.medication_id,
+                newLog.dose_number,
+                newLog.dose_date,
+              ).catch(console.error);
+            }
             setDoseLogs((prev) => {
               const idx = prev.findIndex((l) => l.id === newLog.id);
               if (idx >= 0) {

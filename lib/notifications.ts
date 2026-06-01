@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { supabase } from './supabase';
 import type { Medication, DoseLog } from '../types';
 
 export function configureNotificationHandler() {
@@ -12,6 +14,29 @@ export function configureNotificationHandler() {
       shouldShowList: true,
     }),
   });
+}
+
+export async function registerPushToken(userId: string): Promise<void> {
+  let token: string;
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+    const result = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    token = result.data;
+    console.log('[Push] token obtained:', token);
+  } catch (err) {
+    console.warn('[Push] getExpoPushTokenAsync failed:', err);
+    return;
+  }
+
+  const { error: upsertError } = await supabase
+    .from('push_tokens')
+    .upsert(
+      { user_id: userId, token, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,token' },
+    );
+  if (upsertError) console.warn('[Push] token upsert failed:', upsertError);
 }
 
 export async function requestPermissions(): Promise<boolean> {
@@ -92,6 +117,52 @@ export async function cancelDoseNotification(
   await Notifications.cancelScheduledNotificationAsync(
     notifId(medicationId, doseNumber, date),
   );
+}
+
+/** Sends a push notification to every other family member when a dose is given. */
+export async function sendDoseGivenNotification(params: {
+  currentUserId: string;
+  petName: string;
+  medName: string;
+  givenBy: string;
+}): Promise<void> {
+  const { currentUserId, petName, medName, givenBy } = params;
+  try {
+    // RLS on push_tokens ensures we only see rows for our own family
+    const { data: rows, error: fetchError } = await supabase
+      .from('push_tokens')
+      .select('token')
+      .neq('user_id', currentUserId);
+
+    if (fetchError) {
+      console.warn('[Push] failed to fetch tokens:', fetchError);
+      return;
+    }
+    if (!rows || rows.length === 0) {
+      console.log('[Push] no other devices registered — skipping');
+      return;
+    }
+
+    console.log(`[Push] sending to ${rows.length} device(s)`);
+
+    const messages = rows.map(({ token }: { token: string }) => ({
+      to: token,
+      title: `${petName} got their ${medName} 💊`,
+      body: `Given by ${givenBy}`,
+      sound: 'default',
+      data: { type: 'dose_given' },
+    }));
+
+    const res = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages.length === 1 ? messages[0] : messages),
+    });
+    const json = await res.json();
+    console.log('[Push] Expo response:', JSON.stringify(json));
+  } catch (err) {
+    console.error('[Push] sendDoseGivenNotification error:', err);
+  }
 }
 
 export async function cancelAllForMedication(medicationId: string) {

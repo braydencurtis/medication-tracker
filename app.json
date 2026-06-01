@@ -18,7 +18,10 @@
       "adaptiveIcon": {
         "backgroundColor": "#7B4F9E"
       },
-      "package": "com.personal.pennymeds"
+      "package": "com.personal.pennymeds",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -38,6 +41,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5b17bb52-8b24-4ff3-af48-a90f08f54d49"
+      }
+    },
+    "owner": "code-pirates"
   }
 }

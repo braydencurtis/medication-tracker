@@ -3,12 +3,17 @@ import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../context/AuthContext';
-import { configureNotificationHandler, requestPermissions } from '../lib/notifications';
+import {
+  configureNotificationHandler,
+  requestPermissions,
+  registerPushToken,
+} from '../lib/notifications';
 
 configureNotificationHandler();
 
 function RootLayoutNav() {
   const { session, familyId, memberStatus, loaded } = useAuth();
+  const userId = session?.user?.id;
   const router = useRouter();
   const segments = useSegments();
 
@@ -32,8 +37,11 @@ function RootLayoutNav() {
   }, [session, familyId, memberStatus, loaded, segments]);
 
   useEffect(() => {
-    requestPermissions();
-  }, []);
+    if (!userId || !familyId) return;
+    requestPermissions().then((granted) => {
+      if (granted) registerPushToken(userId).catch(console.error);
+    });
+  }, [userId, familyId]);
 
   return (
     <>
