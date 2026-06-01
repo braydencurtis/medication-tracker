@@ -150,7 +150,7 @@ export async function sendDoseGivenNotification(params: {
       title: `${petName} got their ${medName} 💊`,
       body: `Given by ${givenBy}`,
       sound: 'default',
-      data: { type: 'dose_given' },
+      data: { type: 'dose_given', senderId: currentUserId },
     }));
 
     const res = await fetch('https://exp.host/--/api/v2/push/send', {

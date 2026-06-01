@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import * as Notifications from 'expo-notifications';
 import {
   configureNotificationHandler,
   requestPermissions,
@@ -45,6 +46,32 @@ function RootLayoutNav() {
       if (granted) registerPushToken(userId).catch(console.error);
     });
   }, [userId, familyId]);
+
+  // Re-register the notification handler once we know the user ID so we can
+  // suppress dose_given notifications that the current user sent themselves.
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async (notification) => {
+        const data = notification.request.content.data as Record<string, unknown> | null;
+        if (data?.type === 'dose_given' && userId && data?.senderId === userId) {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
+          };
+        }
+        return {
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        };
+      },
+    });
+  }, [userId]);
 
   return (
     <>
