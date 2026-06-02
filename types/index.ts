@@ -6,6 +6,7 @@ export interface Medication {
   dosage: string | null;
   frequency: number;
   reminder_times: string[];
+  days_of_week: number[];   // 0=Sun … 6=Sat; defaults to all 7
   active: boolean;
   family_id: string | null;
   created_at: string;

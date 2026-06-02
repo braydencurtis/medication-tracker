@@ -76,6 +76,10 @@ export async function scheduleReminders(
 
         if (date <= new Date()) continue;
 
+        // Skip days not in the medication's schedule
+        const allowedDays = med.days_of_week;
+        if (allowedDays && allowedDays.length > 0 && !allowedDays.includes(date.getDay())) continue;
+
         const dateStr = isoDate(date);
         const id = notifId(med.id, doseNum, dateStr);
 

@@ -25,8 +25,12 @@ export type MedicationFormValues = {
   dosage: string | null;
   frequency: number;
   reminder_times: string[];
+  days_of_week: number[];
   active: boolean;
 };
+
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 interface Props {
   familyId: string | null;
@@ -69,6 +73,9 @@ export function MedicationForm({ familyId, initial, onSubmit, submitLabel }: Pro
   const [reminderTimes, setReminderTimes] = useState<string[]>(
     defaultTimes(initial?.frequency ?? 1, initial?.reminder_times ?? []),
   );
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(
+    initial?.days_of_week ?? ALL_DAYS,
+  );
   const [saving, setSaving] = useState(false);
 
   // Time-picker modal state (one picker shared, shown for a specific dose slot)
@@ -76,6 +83,14 @@ export function MedicationForm({ familyId, initial, onSubmit, submitLabel }: Pro
   const [pickerDate, setPickerDate]   = useState<Date>(new Date());
 
   const selectedPet = pets.find((p) => p.id === selectedPetId) ?? null;
+
+  function toggleDay(day: number) {
+    setDaysOfWeek((prev) =>
+      prev.includes(day)
+        ? prev.length > 1 ? prev.filter((d) => d !== day) : prev  // keep at least 1
+        : [...prev, day].sort((a, b) => a - b),
+    );
+  }
 
   function changeFrequency(f: number) {
     setFrequency(f);
@@ -124,6 +139,7 @@ export function MedicationForm({ familyId, initial, onSubmit, submitLabel }: Pro
         dosage: dosage.trim() || null,
         frequency,
         reminder_times: reminderTimes.slice(0, frequency),
+        days_of_week: daysOfWeek,
         active: initial?.active ?? true,
       });
     } finally {
@@ -214,6 +230,26 @@ export function MedicationForm({ familyId, initial, onSubmit, submitLabel }: Pro
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        </Field>
+
+        {/* Days of the week */}
+        <Field label="Days of the week">
+          <View style={styles.daysRow}>
+            {ALL_DAYS.map((day) => {
+              const active = daysOfWeek.includes(day);
+              return (
+                <TouchableOpacity
+                  key={day}
+                  style={[styles.dayButton, active && styles.dayButtonActive]}
+                  onPress={() => toggleDay(day)}
+                >
+                  <Text style={[styles.dayButtonText, active && styles.dayButtonTextActive]}>
+                    {DAY_LABELS[day]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Field>
 
@@ -346,6 +382,33 @@ const styles = StyleSheet.create({
   freqButtonActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryLight },
   freqButtonText: { fontSize: 15, fontWeight: '600', color: theme.colors.textSecondary },
   freqButtonTextActive: { color: theme.colors.primary },
+
+  // Days of week
+  daysRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  dayButton: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: theme.radius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+  },
+  dayButtonActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
+  },
+  dayButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+  },
+  dayButtonTextActive: {
+    color: theme.colors.primary,
+  },
 
   // Time picker rows
   timesColumn: { gap: 8 },

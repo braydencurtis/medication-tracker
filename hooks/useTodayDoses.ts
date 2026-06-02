@@ -170,17 +170,25 @@ export function useTodayDoses() {
     return { error };
   }
 
-  const todayDoses: TodayDose[] = medications.flatMap((med) =>
-    Array.from({ length: med.frequency }, (_, i) => {
-      const doseNumber = i + 1;
-      const log =
-        doseLogs.find(
-          (l) =>
-            l.medication_id === med.id && l.dose_number === doseNumber,
-        ) ?? null;
-      return { medication: med, doseNumber, log };
-    }),
-  );
+  const todayDayOfWeek = new Date().getDay(); // 0 = Sun, 6 = Sat
+
+  const todayDoses: TodayDose[] = medications
+    .filter((med) => {
+      const days = med.days_of_week;
+      // Empty or missing → treat as every day (backward compat)
+      if (!days || days.length === 0) return true;
+      return days.includes(todayDayOfWeek);
+    })
+    .flatMap((med) =>
+      Array.from({ length: med.frequency }, (_, i) => {
+        const doseNumber = i + 1;
+        const log =
+          doseLogs.find(
+            (l) => l.medication_id === med.id && l.dose_number === doseNumber,
+          ) ?? null;
+        return { medication: med, doseNumber, log };
+      }),
+    );
 
   return {
     todayDoses,
